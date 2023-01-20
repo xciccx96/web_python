@@ -1,7 +1,9 @@
+import os
 from flask import Flask
 from flask import render_template, request, redirect
 from flaskext.mysql import MySQL
 from datetime import datetime
+from flask import send_from_directory
 
 app=Flask(__name__)
 mysql = MySQL()
@@ -16,9 +18,20 @@ mysql.init_app(app)
 def index():
     return render_template('sitio/index.html')
 
+@app.route('/img/<imagen>')
+def imagenes(imagen):
+    print(imagen)
+    return send_from_directory(os.path.join('templates/sitio/img'),imagen)
+
 @app.route('/libros')
 def libros():
-    return render_template('sitio/libros.html')
+    conexion = mysql.connect()
+    cursor = conexion.cursor()
+    cursor.execute("SELECT * FROM libros")
+    libros = cursor.fetchall()
+    conexion.commit()
+    print(libros)
+    return render_template('sitio/libros.html', libros=libros)
 
 @app.route('/nosotros')
 def nosotros():
@@ -57,10 +70,10 @@ def admin_libros_guardar():
 
     if archivo.filename != '':
         nuevoNombre = horaActual+"_"+archivo.filename
-        archivo.save("templates/sitio/img" + nuevoNombre)
+        archivo.save("templates/sitio/img/"+nuevoNombre)
 
     sql="INSERT INTO libros (id, nombre, imagen, url) VALUES (NULL, %s, %s, %s);"
-    datos=(titulo,archivo.filename,url)
+    datos=(titulo,nuevoNombre,url)
     conexion = mysql.connect()
     cursor = conexion.cursor()
     cursor.execute(sql,datos)
@@ -71,11 +84,17 @@ def admin_libros_guardar():
 @app.route('/admin/libros/borrar', methods=['POST'])
 def admin_libros_eliminar():
     _id=request.form['txtID']
+    print(_id)
 
     conexion = mysql.connect()
     cursor = conexion.cursor()
-    cursor.execute("SELECT * FROM libros WHERE id = %s",(_id))
+    cursor.execute("SELECT imagen FROM libros WHERE id = %s",(_id))
+    libro = cursor.fetchall()
     conexion.commit()
+    print(libro)
+
+    if os.path.exists("templates/sitio/img/"+str(libro[0][0])):
+        os.unlink("templates/sitio/img/"+str(libro[0][0]))
 
     conexion = mysql.connect()
     cursor = conexion.cursor()
